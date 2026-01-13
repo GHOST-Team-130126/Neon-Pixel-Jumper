@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>NEON PIXEL | NEXUS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading">
+        CARREGANDO NEXUS...
+    </div>
+
+    <div id="overlay">
+        <h1>NEXUS</h1>
+        <h2>NEON PIXEL</h2>
+        <p>PRESSIONE START OU TOQUE PARA INICIAR</p>
+        
+        <div class="controls-info">
+            <div class="control-group">
+                <h3>🎮 CONTROLE (ÍPEGA/GAMEPAD)</h3>
+                • ANALÓGICO ESQUERDO: Movimento<br>
+                • BOTÃO A (⬛): Pular / Selecionar<br>
+                • BOTÃO B (🔴): Voltar / Menu<br>
+                • BOTÃO START (▶️): Iniciar / Pausar<br>
+                • D-PAD ↑↓: Navegar menus
+            </div>
+            
+            <div class="control-group">
+                <h3>⌨️ TECLADO</h3>
+                • WASD / SETAS: Movimento<br>
+                • ESPAÇO / W: Pular<br>
+                • ENTER: Selecionar<br>
+                • ESC: Voltar / Menu<br>
+                • NÚMEROS 1-4: Itens na loja
+            </div>
+            
+            <div class="control-group">
+                <h3>📱 MOBILE (TOUCH)</h3>
+                • ÁREAS ESQUERDA/DIREITA: Movimento<br>
+                • BOTÃO ↑: Pular<br>
+                • BOTÃO A: Ação / Menu<br>
+                • BOTÕES SUPERIORES: Navegação
+            </div>
+        </div>
+        
+        <div id="controlIndicator">
+            <span class="control-icon" id="keyboardIcon">⌨️</span>
+            <span class="control-icon" id="gamepadIcon">🎮</span>
+            <span class="control-icon" id="touchIcon">👆</span>
+            <span id="currentControl">AGUARDANDO CONTROLE...</span>
+        </div>
+    </div>
+
+    <div id="touchControls">
+        <div class="touch-pad" id="leftPad">
+            <div class="touch-center"></div>
+            <div class="touch-label">MOVIMENTO ←</div>
+        </div>
+        <div class="touch-pad" id="rightPad">
+            <div class="touch-center"></div>
+            <div class="touch-label">→ MOVIMENTO</div>
+        </div>
+    </div>
+
+    <div id="actionButtons">
+        <button class="action-btn" id="jumpBtn">↑ PULAR</button>
+        <button class="action-btn" id="actionBtn">A AÇÃO</button>
+    </div>
+
+    <div id="menuTouch">
+        <button class="menu-touch-btn" id="touchStart">START</button>
+        <button class="menu-touch-btn" id="touchMenu">MENU</button>
+        <button class="menu-touch-btn" id="touchShop">LOJA</button>
+    </div>
+
+    <canvas id="game"></canvas>
+
+    <script src="game.js"></script>
+</body>
+</html>
