@@ -747,22 +747,28 @@ let touchState = {
     shop: false
 };
 
-// ================= TOUCH CONTROLS - CÓDIGO REESCRITO =================
+// Variáveis para controle analógico único
+let movePadActive = false;
+let movePadStartX = 0;
+let movePadStartY = 0;
+let movePadCurrentX = 0;
+let movePadCurrentY = 0;
+const MOVE_PAD_THRESHOLD = 20; // Sensibilidade do controle analógico
+
+// ================= TOUCH CONTROLS - REESCRITO PARA UM ÚNICO CONTROLE =================
 function setupTouchControls() {
-    console.log("Configurando controles touch...");
+    console.log("Configurando controles touch (único controle)...");
     
     // Verificar se é dispositivo com touch
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     
     if (isTouchDevice) {
-        // Mostrar controles touch
-        document.getElementById("touchControls").style.display = "block";
-        document.getElementById("actionButtons").style.display = "flex";
-        document.getElementById("menuTouch").style.display = "flex";
+        // Mostrar controles touch otimizados
+        document.getElementById("mobileControls").style.display = "block";
         document.getElementById("controlIndicator").style.display = "flex";
         
-        // Configurar controles básicos
-        setupBasicTouchControls();
+        // Configurar controle analógico único
+        setupMovePad();
         
         // Configurar botões touch
         setupTouchButtons();
@@ -772,129 +778,205 @@ function setupTouchControls() {
         
         activeControl = "touch";
         updateControlIndicator();
-        console.log("Controles touch configurados com sucesso!");
+        console.log("Controles touch otimizados configurados com sucesso!");
     }
 }
 
-function setupBasicTouchControls() {
-    // Touch pads para movimento
-    const leftPad = document.getElementById("leftPad");
-    const rightPad = document.getElementById("rightPad");
+function setupMovePad() {
+    const movePad = document.getElementById("movePad");
+    if (!movePad) return;
     
-    if (!leftPad || !rightPad) return;
+    let activeTouchId = null;
     
-    // Configurar left pad
-    leftPad.addEventListener("touchstart", function(e) {
+    movePad.addEventListener("touchstart", function(e) {
         e.preventDefault();
         e.stopPropagation();
-        touchState.left = true;
-        keys.left = true;
-        activeControl = "touch";
-        updateControlIndicator();
-        lastInputTime = Date.now();
+        
+        if (activeTouchId !== null) return;
+        
+        const touch = e.touches[0];
+        activeTouchId = touch.identifier;
+        
+        const rect = this.getBoundingClientRect();
+        movePadStartX = rect.left + rect.width / 2;
+        movePadStartY = rect.top + rect.height / 2;
+        movePadCurrentX = touch.clientX;
+        movePadCurrentY = touch.clientY;
+        
+        movePadActive = true;
+        updateMovementFromPad();
         
         // Feedback visual
         this.classList.add("active");
-    }, { passive: false });
-    
-    leftPad.addEventListener("touchend", function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        touchState.left = false;
-        keys.left = false;
-        
-        // Feedback visual
-        this.classList.remove("active");
-    }, { passive: false });
-    
-    leftPad.addEventListener("touchcancel", function(e) {
-        e.preventDefault();
-        touchState.left = false;
-        keys.left = false;
-        
-        this.classList.remove("active");
-    }, { passive: false });
-    
-    // Configurar right pad
-    rightPad.addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        touchState.right = true;
-        keys.right = true;
         activeControl = "touch";
         updateControlIndicator();
         lastInputTime = Date.now();
-        
-        // Feedback visual
-        this.classList.add("active");
     }, { passive: false });
     
-    rightPad.addEventListener("touchend", function(e) {
+    movePad.addEventListener("touchmove", function(e) {
         e.preventDefault();
         e.stopPropagation();
-        touchState.right = false;
-        keys.right = false;
         
-        // Feedback visual
-        this.classList.remove("active");
+        if (!movePadActive || activeTouchId === null) return;
+        
+        // Encontrar o toque ativo
+        let touch = null;
+        for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === activeTouchId) {
+                touch = e.touches[i];
+                break;
+            }
+        }
+        
+        if (!touch) return;
+        
+        movePadCurrentX = touch.clientX;
+        movePadCurrentY = touch.clientY;
+        
+        updateMovementFromPad();
+        lastInputTime = Date.now();
     }, { passive: false });
     
-    rightPad.addEventListener("touchcancel", function(e) {
+    movePad.addEventListener("touchend", function(e) {
         e.preventDefault();
-        touchState.right = false;
+        e.stopPropagation();
+        
+        // Verificar se o toque ativo foi liberado
+        let touchEnded = false;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+                touchEnded = true;
+                break;
+            }
+        }
+        
+        if (touchEnded) {
+            movePadActive = false;
+            activeTouchId = null;
+            
+            // Resetar movimento
+            keys.left = false;
+            keys.right = false;
+            touchState.left = false;
+            touchState.right = false;
+            
+            // Feedback visual
+            this.classList.remove("active");
+            
+            // Resetar posição do centro visual
+            const touchCenter = this.querySelector('.touch-center');
+            if (touchCenter) {
+                touchCenter.style.transform = 'translate(0, 0)';
+            }
+        }
+    }, { passive: false });
+    
+    movePad.addEventListener("touchcancel", function(e) {
+        e.preventDefault();
+        movePadActive = false;
+        activeTouchId = null;
+        
+        keys.left = false;
         keys.right = false;
+        touchState.left = false;
+        touchState.right = false;
         
         this.classList.remove("active");
+        
+        const touchCenter = this.querySelector('.touch-center');
+        if (touchCenter) {
+            touchCenter.style.transform = 'translate(0, 0)';
+        }
     }, { passive: false });
 }
 
+function updateMovementFromPad() {
+    if (!movePadActive) return;
+    
+    const deltaX = movePadCurrentX - movePadStartX;
+    const deltaY = movePadCurrentY - movePadStartY;
+    
+    // Resetar estados
+    keys.left = false;
+    keys.right = false;
+    touchState.left = false;
+    touchState.right = false;
+    
+    // Atualizar visual do centro do controle
+    const movePad = document.getElementById("movePad");
+    const touchCenter = movePad.querySelector('.touch-center');
+    
+    // Limitar movimento do centro visual
+    const maxOffset = 30;
+    const offsetX = Math.max(-maxOffset, Math.min(maxOffset, deltaX * 0.5));
+    const offsetY = Math.max(-maxOffset, Math.min(maxOffset, deltaY * 0.5));
+    
+    if (touchCenter) {
+        touchCenter.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    }
+    
+    // Determinar direção baseada no movimento
+    if (Math.abs(deltaX) > MOVE_PAD_THRESHOLD) {
+        if (deltaX < 0) {
+            keys.left = true;
+            touchState.left = true;
+        } else {
+            keys.right = true;
+            touchState.right = true;
+        }
+    }
+    
+    // Se mover para cima, considerar como pulo
+    if (deltaY < -MOVE_PAD_THRESHOLD * 0.8) {
+        keys.jump = true;
+        touchState.jump = true;
+        keys.a = true;
+    }
+}
+
 function setupTouchButtons() {
-    // Botão de pulo
-    const jumpBtn = document.getElementById("jumpBtn");
-    if (jumpBtn) {
-        jumpBtn.addEventListener("touchstart", function(e) {
+    // Botão START/MENU (centro inferior)
+    const startBtn = document.getElementById("startBtn");
+    if (startBtn) {
+        startBtn.addEventListener("touchstart", function(e) {
             e.preventDefault();
             e.stopPropagation();
-            touchState.jump = true;
-            keys.jump = true;
-            keys.a = true;
+            touchState.start = true;
+            keys.start = true;
+            keys.action = true;
             activeControl = "touch";
             updateControlIndicator();
             lastInputTime = Date.now();
             
-            // Se estiver na tela inicial
-            if (state === "launch") {
-                hideOverlay();
-                state = "menu";
-                beep(600);
-            }
+            // Processar ação baseada no estado atual
+            handleStartButton();
             
             // Feedback visual
             this.classList.add("active");
         }, { passive: false });
         
-        jumpBtn.addEventListener("touchend", function(e) {
+        startBtn.addEventListener("touchend", function(e) {
             e.preventDefault();
             e.stopPropagation();
-            touchState.jump = false;
-            keys.jump = false;
-            keys.a = false;
+            touchState.start = false;
+            keys.start = false;
+            keys.action = false;
             
             // Feedback visual
             this.classList.remove("active");
         }, { passive: false });
         
-        jumpBtn.addEventListener("touchcancel", function(e) {
+        startBtn.addEventListener("touchcancel", function(e) {
             e.preventDefault();
-            touchState.jump = false;
-            keys.jump = false;
-            keys.a = false;
+            touchState.start = false;
+            keys.start = false;
+            keys.action = false;
             
             this.classList.remove("active");
         }, { passive: false });
     }
     
-    // Botão de ação
+    // Botão AÇÃO (direito inferior)
     const actionBtn = document.getElementById("actionBtn");
     if (actionBtn) {
         actionBtn.addEventListener("touchstart", function(e) {
@@ -902,12 +984,13 @@ function setupTouchButtons() {
             e.stopPropagation();
             touchState.action = true;
             keys.action = true;
+            keys.a = true;
             activeControl = "touch";
             updateControlIndicator();
             lastInputTime = Date.now();
             
             // Processar ação
-            handleTouchAction();
+            handleActionButton();
             
             // Feedback visual
             this.classList.add("active");
@@ -918,6 +1001,7 @@ function setupTouchButtons() {
             e.stopPropagation();
             touchState.action = false;
             keys.action = false;
+            keys.a = false;
             
             // Feedback visual
             this.classList.remove("active");
@@ -927,17 +1011,18 @@ function setupTouchButtons() {
             e.preventDefault();
             touchState.action = false;
             keys.action = false;
+            keys.a = false;
             
             this.classList.remove("active");
         }, { passive: false });
     }
     
-    // Botões de menu touch
+    // Botões de menu touch superiores (mantidos para compatibilidade)
     const touchStartBtn = document.getElementById("touchStart");
     const touchMenuBtn = document.getElementById("touchMenu");
     const touchShopBtn = document.getElementById("touchShop");
     
-    // START
+    // START (menu superior)
     if (touchStartBtn) {
         touchStartBtn.addEventListener("touchstart", function(e) {
             e.preventDefault();
@@ -948,16 +1033,7 @@ function setupTouchButtons() {
             updateControlIndicator();
             lastInputTime = Date.now();
             
-            if (state === "launch") {
-                hideOverlay();
-                state = "menu";
-                beep(600);
-            } else if (state === "pause") {
-                state = "game";
-                beep(300);
-            } else if (state === "menu") {
-                handleMenuSelect();
-            }
+            handleStartButton();
             
             // Feedback visual
             this.classList.add("active");
@@ -982,7 +1058,7 @@ function setupTouchButtons() {
         }, { passive: false });
     }
     
-    // MENU
+    // MENU (menu superior)
     if (touchMenuBtn) {
         touchMenuBtn.addEventListener("touchstart", function(e) {
             e.preventDefault();
@@ -1024,7 +1100,7 @@ function setupTouchButtons() {
         }, { passive: false });
     }
     
-    // LOJA
+    // LOJA (menu superior)
     if (touchShopBtn) {
         touchShopBtn.addEventListener("touchstart", function(e) {
             e.preventDefault();
@@ -1112,8 +1188,8 @@ function setupCanvasTouch() {
     }, { passive: false });
 }
 
-// Função para processar ações touch
-function handleTouchAction() {
+// Função para processar botão START
+function handleStartButton() {
     switch(state) {
         case "launch":
             hideOverlay();
@@ -1123,6 +1199,54 @@ function handleTouchAction() {
             
         case "menu":
             handleMenuSelect();
+            break;
+            
+        case "game":
+            // No jogo, START pausa
+            state = "pause";
+            beep(300);
+            break;
+            
+        case "pause":
+            state = "game";
+            beep(300);
+            break;
+            
+        case "shop":
+            handleShopPurchase();
+            break;
+            
+        case "palettes":
+            selectPalette();
+            break;
+    }
+}
+
+// Função para processar botão AÇÃO
+function handleActionButton() {
+    switch(state) {
+        case "launch":
+            hideOverlay();
+            state = "menu";
+            beep(600);
+            break;
+            
+        case "menu":
+            handleMenuSelect();
+            break;
+            
+        case "game":
+            // No jogo, botão A é para pular
+            if (!keys.jump && !touchState.jump) {
+                keys.jump = true;
+                touchState.jump = true;
+                
+                // Auto-release after 100ms
+                setTimeout(() => {
+                    keys.jump = false;
+                    touchState.jump = false;
+                }, 100);
+            }
             break;
             
         case "shop":
@@ -1136,10 +1260,6 @@ function handleTouchAction() {
         case "pause":
             state = "game";
             beep(300);
-            break;
-            
-        case "game":
-            // No jogo, o botão A já está configurado para pular
             break;
     }
 }
@@ -1776,7 +1896,7 @@ function update() {
     
     player.vx = 0;
     
-    // Controles de movimento - verifica tanto touch quanto teclado
+    // Controles de movimento - verifica touchState, movePad e teclado
     if (keys.left || touchState.left) {
         player.vx = -PLAYER_SPEED;
         player.facing = -1;
@@ -2451,7 +2571,7 @@ function init() {
     // Carregar paletas desbloqueadas
     loadUnlockedPalettes();
     
-    // Configurar controles touch
+    // Configurar controles touch otimizados
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
         setupTouchControls();
     } else {
@@ -2481,14 +2601,14 @@ function init() {
     
     // Prevenir comportamento padrão do touch
     document.addEventListener('touchstart', function(e) {
-        if (e.target === canvas || e.target.closest('#touchControls') || 
+        if (e.target === canvas || e.target.closest('#mobileControls') || 
             e.target.closest('#actionButtons') || e.target.closest('#menuTouch')) {
             e.preventDefault();
         }
     }, { passive: false });
     
     document.addEventListener('touchmove', function(e) {
-        if (e.target === canvas || e.target.closest('#touchControls') || 
+        if (e.target === canvas || e.target.closest('#mobileControls') || 
             e.target.closest('#actionButtons') || e.target.closest('#menuTouch')) {
             e.preventDefault();
         }
@@ -2496,7 +2616,7 @@ function init() {
     
     // Prevenir menu de contexto em toque prolongado
     document.addEventListener('contextmenu', function(e) {
-        if (e.target === canvas || e.target.closest('#touchControls') || 
+        if (e.target === canvas || e.target.closest('#mobileControls') || 
             e.target.closest('#actionButtons') || e.target.closest('#menuTouch')) {
             e.preventDefault();
         }
